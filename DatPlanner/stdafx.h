@@ -9,6 +9,19 @@
 
 #include <stdio.h>
 #include <tchar.h>
+#include <chrono>
+#include <SFML\Graphics.hpp>
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <list>
+#include <map>
+
+using std::cout;
+using std::endl;
+using std::cin;
+
+
 
 
 
