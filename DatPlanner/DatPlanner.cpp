@@ -77,6 +77,7 @@ struct
 
 void display_week(sf::RenderWindow& window, sf::Text& text, int deltaweek)
 {
+	window.setView(window.getDefaultView());
 	int start_hour = (int)calendar.start_minute / 60;
 	
 	Day current_week_days[7];
@@ -120,16 +121,6 @@ void display_week(sf::RenderWindow& window, sf::Text& text, int deltaweek)
 	// Draw columns
 	for (int i = 0; i < 7; i++)
 	{
-		// This is our day
-		if ( current_week_days[i].day == tm->tm_mday)
-		{
-			sf::RectangleShape shape;
-			shape.setFillColor(sf::Color(50, 50, 50, 255));
-			shape.setPosition(xmargin + dx*i + 1, 0);
-			shape.setSize(sf::Vector2f{ (float)dx - 2, (float)window.getSize().y });
-			window.draw(shape);
-		}
-
 		ss.str("");
 		ss << weekdays[i] << " - " << current_week_days[i].day;
 		text.setString(ss.str());
@@ -138,15 +129,7 @@ void display_week(sf::RenderWindow& window, sf::Text& text, int deltaweek)
 		text_height = rect.height + rect.top + 1;
 		
 		text.setPosition(x, 0);
-		
 		window.draw(text);
-		
-		if (i > 0)
-		{
-			rshape.setPosition(xmargin + dx*i, 0);
-			rshape.setSize({ 1,(float)window.getSize().y });
-			window.draw(rshape);
-		}
 	}
 
 	// Draw margins
@@ -165,6 +148,9 @@ void display_week(sf::RenderWindow& window, sf::Text& text, int deltaweek)
 
 	// Draw rows
 	float dy = (window.getSize().y - text_height) / (calendar.show_minutes/60);
+
+	calendar.ymargin = text_height;
+	calendar.dy = dy;
 
 	text.setColor(sf::Color(128, 128, 128));
 
@@ -214,44 +200,6 @@ void display_week(sf::RenderWindow& window, sf::Text& text, int deltaweek)
 		window.draw(text);
 	}
 
-	// Draw current time
-	if (deltaweek == 0)
-	{
-		rshape.setFillColor(sf::Color::Green);
-		rshape.setSize({ (float)dx -1, 1 });
-		rshape.setPosition(xmargin + dx*current_day, (tm->tm_min + tm->tm_hour * 60 - calendar.start_minute)*dy / 60 + text_height);
-		if (rshape.getPosition().y > text_height)
-			window.draw(rshape);
-	}
-
-	// Draw events
-	int i = 0;
-	for (auto& single_event : calendar.next_single_events)
-	{
-		i = 0;
-		for (auto& day : current_week_days)
-		{
-			if (day == single_event.day)
-			{
-				rshape.setFillColor(sf::Color::Green);
-				rshape.setSize({(dx - 3), (single_event.day_minutes_end - single_event.day_minutes_start)*dy/60 - 2});
-				rshape.setPosition(xmargin + dx*i + 2, (single_event.day_minutes_start - calendar.start_minute)*dy / 60 + text_height + 2);
-				if (rshape.getPosition().y <= text_height && rshape.getGlobalBounds().top + rshape.getSize().y > text_height)
-				{
-					rshape.setSize({ rshape.getSize().x, rshape.getSize().y - (text_height - rshape.getPosition().y)  - 2 });
-					rshape.setPosition(rshape.getPosition().x, text_height + 2);
-					window.draw(rshape);
-				}
-				else if (rshape.getPosition().y > text_height)
-					window.draw(rshape);
-			}
-
-			i++;
-		}
-	}
-	
-
-
 	// Draw week buttons
 	rshape.setSize({ (float)xmargin, (float)text_height });
 	rshape.setPosition(0, 0);
@@ -297,8 +245,66 @@ void display_week(sf::RenderWindow& window, sf::Text& text, int deltaweek)
 	text.setPosition(-(text.getLocalBounds().left + text.getLocalBounds().width / 2) + window.getSize().x - xmargin / 2, -(text.getLocalBounds().top + text.getLocalBounds().height / 2) + text_height / 2);
 	window.draw(text);
 
-	calendar.ymargin = text_height;
-	calendar.dy = dy;
+
+	// This view defines the main area where events and such are drawn
+	sf::View main_view(sf::FloatRect(0.0f, calendar.start_minute, 7.0f, calendar.show_minutes));
+	//main_view.setViewport(sf::FloatRect(calendar.xmargin, calendar.ymargin, window.getSize().x - 2 * calendar.xmargin, window.getSize().y - calendar.ymargin));
+	float viewport_dx = calendar.xmargin / window.getSize().x;
+	float viewport_dy = calendar.ymargin / window.getSize().y;
+	main_view.setViewport({viewport_dx, viewport_dy, 1 - 2*viewport_dx, 1 - viewport_dy});
+	window.setView(main_view);
+
+	// Draw events
+	int i = 0;
+	for (auto& single_event : calendar.next_single_events)
+	{
+		i = 0;
+		for (auto& day : current_week_days)
+		{
+			if (day == single_event.day)
+			{
+				rshape.setFillColor(sf::Color{200,255,200,128});
+				rshape.setSize({1.0f, (float)single_event.day_minutes_end - single_event.day_minutes_start});
+				rshape.setPosition({(float)i, (float)single_event.day_minutes_start});
+				window.draw(rshape);
+			}
+
+			i++;
+		}
+	}
+
+	// Draw columns
+	for (int i = 0; i < 7; i++)
+	{
+		// This is our day
+		if (current_week_days[i].day == tm->tm_mday)
+		{
+			sf::RectangleShape shape;
+			shape.setFillColor(sf::Color(128, 128, 128, 128));
+			shape.setPosition(i, calendar.start_minute);
+			shape.setSize(sf::Vector2f{ 1.0f, calendar.show_minutes});
+			window.draw(shape);
+		}
+
+		
+		rshape.setFillColor(sf::Color(255, 255, 255));
+		rshape.setPosition(i, calendar.start_minute);
+		rshape.setSize({ 1/(7*20.0f) , calendar.show_minutes });
+		window.draw(rshape);
+	}
+
+	t = std::time(nullptr);
+	tm = std::localtime(&t);
+
+	// Draw current time
+	if(deltaweek == 0)
+	{
+		rshape.setFillColor(sf::Color::Green);
+		rshape.setSize({ 1.0f, calendar.show_minutes / 100 });
+		rshape.setPosition({ current_day*1.0f, tm->tm_min + tm->tm_hour*60.0f });
+		window.draw(rshape);
+	}
+	
 }
 
 int main(int argc, char **argv)
@@ -307,7 +313,7 @@ int main(int argc, char **argv)
 	calendar.start_minute = 7 * 60 + 45;
 	calendar.show_minutes = 11 * 60 + 30;
 
-	calendar.next_single_events.push_back({ { 2016, 4, 21 }, 8 * 60, 12 * 60 });
+	calendar.next_single_events.push_back({ { 2016, 5, 25 }, 8 * 60, 12 * 60 });
 	calendar.next_single_events.push_back({ { 2016, 4, 23 }, 8 * 60, 12 * 60 });
 	calendar.next_single_events.push_back({ { 2016, 4, 18 }, 10 * 60, 12 * 60 });
 	calendar.next_single_events.push_back({ { 2016, 4, 18 }, 14 * 60, 19 * 60 });
